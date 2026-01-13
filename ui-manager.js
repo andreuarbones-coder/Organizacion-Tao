@@ -5,8 +5,8 @@ const State = {
     user: null,
     username: localStorage.getItem('jardin_username') || '',
     branch: localStorage.getItem('tao_branch') || 'centro',
-    view: 'delivery', // Inicial: Repartos
-    proceduresTab: 'protocols', // Tab activa en procedimientos
+    view: 'delivery', 
+    proceduresTab: 'protocols',
     wakeLock: null,
     listeners: {},
     stockList: []
@@ -15,55 +15,80 @@ const State = {
 // === UI MANAGER ===
 export const UI = {
     init() {
-        this.setBranch(State.branch);
-        this.nav('delivery'); // Por defecto a Repartos (Principal)
+        console.log("Iniciando Jardín OS...");
         
-        const dateEl = document.getElementById('currentDate');
-        if(dateEl) dateEl.innerText = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' });
-        
-        if (!State.username) {
-            setTimeout(() => document.getElementById('modal-username')?.classList.remove('hidden'), 500);
-        }
-
-        AuthService.init((user) => {
-            const ind = document.getElementById('connectionStatus');
-            if (user) {
-                State.user = user;
-                if(ind) ind.innerText = "Conectado";
-                document.getElementById('loadingIndicator')?.classList.remove('hidden');
-                this.startDataListeners();
-                
-                // Mantenemos carga de Stock para el datalist aunque no haya vista
-                this.loadStock();
-                
-                setTimeout(() => document.getElementById('loadingIndicator')?.classList.add('hidden'), 1000);
-            } else {
-                if(ind) ind.innerText = "Desconectado";
-                AuthService.signIn(); 
+        try {
+            // 1. Configurar Sucursal y Vista Inicial
+            this.setBranch(State.branch);
+            this.nav('delivery'); 
+            
+            // 2. Establecer Fecha
+            const dateEl = document.getElementById('currentDate');
+            if(dateEl) {
+                dateEl.innerText = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' });
             }
-        });
+            
+            // 3. Verificar Nombre de Usuario
+            if (!State.username) {
+                setTimeout(() => document.getElementById('modal-username')?.classList.remove('hidden'), 500);
+            }
 
-        this.setupEventListeners();
+            // 4. Configurar Eventos
+            this.setupEventListeners();
+
+            // 5. Iniciar Autenticación (Esto quitará el loading)
+            AuthService.init((user) => {
+                const ind = document.getElementById('connectionStatus');
+                const loader = document.getElementById('loadingIndicator');
+                
+                if (user) {
+                    console.log("Usuario autenticado:", user.uid);
+                    State.user = user;
+                    if(ind) ind.innerText = "Conectado";
+                    
+                    if(loader) loader.classList.remove('hidden');
+                    
+                    this.startDataListeners();
+                    this.loadStock(); 
+                    
+                    // Ocultar loader con seguridad
+                    setTimeout(() => { if(loader) loader.classList.add('hidden'); }, 1000);
+                } else {
+                    console.log("Sin usuario, iniciando sesión anónima...");
+                    if(ind) ind.innerText = "Desconectado";
+                    AuthService.signIn(); 
+                }
+            });
+
+        } catch (error) {
+            console.error("Error crítico en inicialización:", error);
+            // Si falla, forzar la eliminación del loader para que se vea algo
+            document.getElementById('loadingIndicator')?.classList.add('hidden');
+            this.toast("Error al iniciar aplicación", "error");
+        }
     },
 
     setupEventListeners() {
-        // Toggle Sucursal (Ahora en el Header)
+        // Toggle Sucursal
         const branchBtn = document.getElementById('branchToggleBtn');
         if (branchBtn) branchBtn.onclick = () => this.toggleBranch();
         
-        // Modales
+        // Modales (Cierre)
         document.querySelectorAll('.modal-close').forEach(b => b.onclick = () => this.closeModal());
         const overlay = document.getElementById('modalOverlay');
         if(overlay) overlay.onclick = (e) => { if(e.target === overlay) this.closeModal(); };
 
-        // FAB - Lógica dinámica según vista
-        document.getElementById('mainFab').onclick = () => this.handleFab();
+        // FAB
+        const fab = document.getElementById('mainFab');
+        if(fab) fab.onclick = () => this.handleFab();
 
         // Wake Lock
-        document.getElementById('wakeLockBtn').onclick = () => this.toggleWakeLock();
+        const wlBtn = document.getElementById('wakeLockBtn');
+        if(wlBtn) wlBtn.onclick = () => this.toggleWakeLock();
 
         // Guardar Nombre
-        document.getElementById('saveUsernameBtn').onclick = () => {
+        const saveNameBtn = document.getElementById('saveUsernameBtn');
+        if(saveNameBtn) saveNameBtn.onclick = () => {
             const name = document.getElementById('usernameInput').value.trim();
             if(name) {
                 localStorage.setItem('jardin_username', name);
@@ -73,21 +98,38 @@ export const UI = {
             }
         };
 
-        // CRUD Actions
-        document.getElementById('saveTaskBtn').onclick = () => this.saveTask();
-        document.getElementById('deleteTaskBtn').onclick = () => {
+        // Lógica condicional (Pedidos: Distribuidor)
+        const orderTypeSelect = document.getElementById('orderType');
+        if(orderTypeSelect) {
+            orderTypeSelect.onchange = (e) => {
+                const distInput = document.getElementById('orderDistributorName');
+                if(distInput) {
+                    if(e.target.value === 'distributor') {
+                        distInput.classList.remove('hidden');
+                        distInput.focus();
+                    } else {
+                        distInput.classList.add('hidden');
+                    }
+                }
+            };
+        }
+
+        // CRUD Actions (Verificación defensiva: solo asigna si el elemento existe)
+        const bindClick = (id, fn) => {
+            const el = document.getElementById(id);
+            if(el) el.onclick = fn;
+        };
+
+        bindClick('saveTaskBtn', () => this.saveTask());
+        bindClick('deleteTaskBtn', () => {
              const id = document.getElementById('taskId').value;
              if(id) window.delTask(id);
-        };
-        document.getElementById('saveOrderBtn').onclick = () => this.saveOrder();
-        document.getElementById('saveDelBtn').onclick = () => this.saveDelivery();
-        
-        // CRUD Notas
-        document.getElementById('saveNoteBtn').onclick = () => this.saveNote();
-        
-        // CRUD Procedures/Script
-        document.getElementById('saveProcBtn').onclick = () => this.saveProcedure();
-        document.getElementById('saveScriptBtn').onclick = () => this.saveScript();
+        });
+        bindClick('saveOrderBtn', () => this.saveOrder());
+        bindClick('saveDelBtn', () => this.saveDelivery());
+        bindClick('saveNoteBtn', () => this.saveNote());
+        bindClick('saveProcBtn', () => this.saveProcedure());
+        bindClick('saveScriptBtn', () => this.saveScript());
     },
 
     // --- LOGICA DE GUARDADO ---
@@ -109,27 +151,47 @@ export const UI = {
             if (id) { await DataService.update('tasks', id, data); this.toast("Tarea actualizada"); } 
             else { await DataService.add('tasks', data); this.toast("Tarea creada"); }
             this.closeModal();
-        } catch (e) { this.toast("Error al guardar", "error"); }
+        } catch (e) { console.error(e); this.toast("Error al guardar", "error"); }
     },
 
     async saveOrder() {
         const requester = document.getElementById('orderRequester').value.trim();
         const notes = document.getElementById('orderNotes').value.trim();
+        
+        // Nuevos campos (Defensivo: usa optional chaining ?.)
+        const type = document.getElementById('orderType')?.value || 'internal_to_center';
+        const distributorName = document.getElementById('orderDistributorName')?.value.trim() || '';
+        
         const items = [];
-        document.getElementById('orderItemsContainer').querySelectorAll('.order-row').forEach(row => {
-            const name = row.querySelector('.order-item').value.trim();
-            const amount = row.querySelector('.order-amount').value.trim();
-            if(name) items.push({ name, amount });
-        });
+        const container = document.getElementById('orderItemsContainer');
+        if(container) {
+            container.querySelectorAll('.order-row').forEach(row => {
+                const name = row.querySelector('.order-item').value.trim();
+                const amount = row.querySelector('.order-amount').value.trim();
+                if(name) items.push({ name, amount });
+            });
+        }
 
         if (items.length === 0) return this.toast("Agrega al menos un producto", "error");
         if (!requester) return this.toast("Indica quién solicita", "error");
+        if (type === 'distributor' && !distributorName) return this.toast("Indica el nombre del distribuidor", "error");
+
+        const data = { 
+            requester, 
+            notes, 
+            items, 
+            status: 'pending', 
+            branch: State.branch, 
+            type, 
+            distributorName: type === 'distributor' ? distributorName : null,
+            createdAt: new Date() 
+        };
 
         try {
-            await DataService.add('orders', { requester, notes, items, status: 'pending', branch: State.branch, createdAt: new Date() });
+            await DataService.add('orders', data);
             this.toast("Pedido enviado");
             this.closeModal();
-        } catch (e) { this.toast("Error", "error"); }
+        } catch (e) { console.error(e); this.toast("Error", "error"); }
     },
 
     async saveDelivery() {
@@ -139,21 +201,35 @@ export const UI = {
         const when = document.getElementById('delWhen').value.trim();
         const where = document.getElementById('delWhere').value.trim();
         const notes = document.getElementById('delNotes').value.trim();
+        
+        // Nuevos campos (Defensivo)
+        const seller = document.getElementById('delSeller')?.value.trim() || '';
+        const ticket = document.getElementById('delTicket')?.value.trim() || '';
+
         const items = [];
-        document.getElementById('delItemsContainer').querySelectorAll('.order-row').forEach(row => {
-            const name = row.querySelector('.order-item').value.trim();
-            const amount = row.querySelector('.order-amount').value.trim();
-            if(name) items.push({ name, amount });
-        });
+        const container = document.getElementById('delItemsContainer');
+        if(container) {
+            container.querySelectorAll('.order-row').forEach(row => {
+                const name = row.querySelector('.order-item').value.trim();
+                const amount = row.querySelector('.order-amount').value.trim();
+                if(name) items.push({ name, amount });
+            });
+        }
 
-        if (!client || !where) return this.toast("Faltan datos", "error");
+        if (!client || !where) return this.toast("Faltan datos (Cliente/Dirección)", "error");
 
-        const data = { client, phone, when, where, notes, items, branch: State.branch, status: 'pending' };
+        const data = { 
+            client, phone, when, where, notes, items, seller, ticket,
+            branch: State.branch
+        };
+
+        if(!id) data.status = 'pending'; 
+
         try {
             if (id) { await DataService.update('deliveries', id, data); this.toast("Reparto actualizado"); }
             else { await DataService.add('deliveries', data); this.toast("Reparto agendado"); }
             this.closeModal();
-        } catch (e) { this.toast("Error", "error"); }
+        } catch (e) { console.error(e); this.toast("Error", "error"); }
     },
 
     async saveNote() {
@@ -174,7 +250,7 @@ export const UI = {
         const color = colorInput ? colorInput.value : 'blue';
         if(!title) return;
         try {
-            await DataService.add('procedures', { title, steps, color }); // Procedimientos son globales por ahora
+            await DataService.add('procedures', { title, steps, color });
             this.toast("Protocolo guardado");
             this.closeModal();
         } catch(e) { this.toast("Error", "error"); }
@@ -200,10 +276,10 @@ export const UI = {
         const label = document.getElementById('settingsBranchName');
         
         if (branch === 'centro') {
-            body.className = 'branch-centro transition-colors duration-500 font-sans text-slate-800';
+            if(body) body.className = 'branch-centro transition-colors duration-500 font-sans text-slate-800';
             if(label) label.innerText = 'Centro Tao';
         } else {
-            body.className = 'branch-ejemplares transition-colors duration-500 font-sans text-slate-800';
+            if(body) body.className = 'branch-ejemplares transition-colors duration-500 font-sans text-slate-800';
             if(label) label.innerText = 'Ejemplares Tao';
         }
         
@@ -243,13 +319,15 @@ export const UI = {
 
         // Cambiar vista
         document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
-        document.getElementById(`view-${view}`).classList.remove('hidden');
+        const targetView = document.getElementById(`view-${view}`);
+        if(targetView) targetView.classList.remove('hidden');
         
         const titles = { 
             tasks: 'Mis Tareas', orders: 'Pedidos', delivery: 'Repartos', 
             notes: 'Notas', procedures: 'Procedimientos'
         };
-        document.getElementById('pageTitle').innerText = titles[view] || 'Jardín OS';
+        const pageTitle = document.getElementById('pageTitle');
+        if(pageTitle) pageTitle.innerText = titles[view] || 'Jardín OS';
     },
 
     switchProceduresTab(tab) {
@@ -304,7 +382,7 @@ export const UI = {
         State.listeners.orders = DataService.subscribeToCollection('orders', (items) => this.renderOrders(items));
         State.listeners.delivery = DataService.subscribeToCollection('deliveries', (items) => this.renderDeliveries(items));
         
-        // Procedimientos y Scripts (Carga de ambas colecciones para la vista unificada)
+        // Procedimientos y Scripts
         State.listeners.procedures = DataService.subscribeToCollection('procedures', (items) => this.renderProcedures(items));
         State.listeners.scripts = DataService.subscribeToCollection('scripts', (items) => this.renderScripts(items));
     },
@@ -321,6 +399,7 @@ export const UI = {
 
     renderTasks(tasks) {
         const list = document.getElementById('taskList');
+        if(!list) return;
         list.innerHTML = '';
         if(tasks.length === 0) { list.innerHTML = this.emptyState('relax', 'Todo listo por hoy'); return; }
 
@@ -341,7 +420,6 @@ export const UI = {
             const div = document.createElement('div');
             div.className = `bg-white rounded-xl p-4 shadow-sm border-l-4 ${prioColor[t.priority] || 'border-l-slate-300'} flex gap-3 transition-all ${isDone ? 'opacity-50' : ''}`;
             
-            // Actions
             const actionsDiv = document.createElement('div');
             actionsDiv.className = "flex flex-col gap-2 pt-1 border-l border-slate-100 pl-3";
             
@@ -354,7 +432,6 @@ export const UI = {
                 actionsDiv.innerHTML = `<button onclick="window.updateTaskStatus('${t.id}', 'pending', '${t.cycle}')" class="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-md active:scale-90"><i class="fas fa-undo"></i></button>`;
             }
 
-            // Content
             const contentDiv = document.createElement('div');
             contentDiv.className = "flex-grow";
             div.appendChild(contentDiv);
@@ -390,28 +467,29 @@ export const UI = {
 
     renderNotes(notes) {
         const list = document.getElementById('notesList');
+        if(!list) return;
         list.innerHTML = '';
         if(notes.length === 0) { list.innerHTML = this.emptyState('sticky-note', 'Sin notas'); return; }
         
         notes.forEach(n => {
-            const isMoney = n.type === 'billing';
+            const isCart = n.type === 'cart';
             const div = document.createElement('div');
-            div.className = `p-4 rounded-xl shadow-sm border relative ${isMoney ? 'bg-amber-50 border-amber-200' : 'bg-yellow-50 border-yellow-200'}`;
+            div.className = `p-4 rounded-xl shadow-sm border relative ${isCart ? 'bg-white border-blue-200 border-l-4 border-l-blue-500' : 'bg-yellow-50 border-yellow-200'}`;
             
-            if (isMoney) {
+            if (isCart) {
                 const badge = document.createElement('span');
-                badge.className = "absolute -top-2 left-4 bg-amber-500 text-white text-[10px] px-2 rounded";
-                badge.textContent = "COBRAR";
+                badge.className = "absolute -top-2 left-4 bg-blue-500 text-white text-[10px] px-2 rounded font-bold shadow-sm flex items-center gap-1";
+                badge.innerHTML = '<i class="fas fa-shopping-cart"></i> COMPRAR';
                 div.appendChild(badge);
             }
 
             const p = document.createElement('p');
-            p.className = "whitespace-pre-wrap text-slate-800 leading-relaxed font-sans";
+            p.className = `whitespace-pre-wrap leading-relaxed font-sans ${isCart ? 'text-slate-700' : 'text-slate-800'}`;
             p.textContent = n.content; 
             div.appendChild(p);
 
             const btn = document.createElement('button');
-            btn.className = "absolute top-2 right-2 text-slate-400 hover:text-red-500 transition-colors w-8 h-8 flex items-center justify-center rounded-full hover:bg-red-50";
+            btn.className = "absolute top-2 right-2 text-slate-400 hover:text-red-500 transition-colors w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100";
             btn.innerHTML = '<i class="fas fa-trash-alt"></i>';
             btn.onclick = () => window.delItem('notes', n.id);
             div.appendChild(btn);
@@ -433,6 +511,7 @@ export const UI = {
 
     renderOrders(orders) {
         const list = document.getElementById('ordersList');
+        if(!list) return;
         list.innerHTML = '';
         if(orders.length === 0) { list.innerHTML = this.emptyState('shopping-basket', 'Sin pedidos'); return; }
         
@@ -440,19 +519,28 @@ export const UI = {
            const div = document.createElement('div');
            div.className = "bg-white rounded-xl p-4 shadow-sm border border-slate-200 mb-2 relative overflow-hidden";
            let itemsHtml = '<ul class="text-sm text-slate-600 mt-2 space-y-1">';
-           o.items.forEach(i => itemsHtml += `<li><b>${i.amount}</b> ${i.name}</li>`);
+           if(o.items) o.items.forEach(i => itemsHtml += `<li><b>${i.amount}</b> ${i.name}</li>`);
            itemsHtml += '</ul>';
 
+           let typeLabel = '';
+           if(o.type === 'internal_to_center') typeLabel = '<span class="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded font-bold">EJEMPLARES <i class="fas fa-arrow-right"></i> CENTRO</span>';
+           else if(o.type === 'internal_to_branch') typeLabel = '<span class="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded font-bold">CENTRO <i class="fas fa-arrow-right"></i> EJEMPLARES</span>';
+           else if(o.type === 'distributor') typeLabel = `<span class="text-[10px] bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-bold"><i class="fas fa-truck"></i> ${o.distributorName || 'PROVEEDOR'}</span>`;
+
            div.innerHTML = `
-                <div class="flex justify-between items-start">
+                <div class="flex justify-between items-start mb-2">
                     <div>
-                        <div class="font-bold text-slate-800">${o.requester} <span class="text-xs font-normal text-slate-400">solicita:</span></div>
-                        ${o.notes ? `<div class="text-xs text-slate-400 italic my-1">"${o.notes}"</div>` : ''}
+                        ${typeLabel}
+                        <div class="font-bold text-slate-800 mt-1">${o.requester} <span class="text-xs font-normal text-slate-400">solicita:</span></div>
                     </div>
                     <button onclick="window.delShared('orders', '${o.id}')" class="text-slate-300 hover:text-red-400"><i class="fas fa-trash-alt"></i></button>
                 </div>
                 ${itemsHtml}
-                <div class="text-[10px] text-right text-slate-300 mt-2">${o.createdAt ? new Date(o.createdAt.seconds*1000).toLocaleDateString() : ''}</div>
+                ${o.notes ? `<div class="text-xs text-slate-400 italic mt-2 bg-slate-50 p-1.5 rounded">"${o.notes}"</div>` : ''}
+                
+                <div class="flex items-center justify-between mt-3 pt-2 border-t border-slate-50">
+                    <div class="text-[10px] text-slate-300 ml-auto">${o.createdAt ? new Date(o.createdAt.seconds*1000).toLocaleDateString() : ''}</div>
+                </div>
            `; 
            list.appendChild(div);
         });
@@ -460,35 +548,63 @@ export const UI = {
     
     renderDeliveries(items) { 
         const list = document.getElementById('deliveryList');
+        if(!list) return;
         list.innerHTML = '';
-        if(items.length === 0) { list.innerHTML = this.emptyState('truck', 'Sin repartos pendientes'); return; }
+        if(items.length === 0) { list.innerHTML = this.emptyState('truck', 'Sin repartos'); return; }
+
+        items.sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
 
         items.forEach(d => {
             const div = document.createElement('div');
-            div.className = "bg-white rounded-xl p-4 shadow-sm border border-slate-200 mb-3 relative";
+            const isDone = d.status === 'delivered';
+            const isIncomplete = d.status === 'incomplete';
+            
+            let borderClass = 'border-slate-200';
+            if(isDone) borderClass = 'border-emerald-200 bg-emerald-50/50';
+            if(isIncomplete) borderClass = 'border-orange-200 bg-orange-50/50';
+
+            div.className = `bg-white rounded-xl p-4 shadow-sm border ${borderClass} mb-3 relative transition-all`;
             const itemsText = d.items ? d.items.map(i => `${i.amount} ${i.name}`).join(', ') : 'Sin detalle';
+
+            const btnPending = `<button onclick="window.updateDeliveryStatus('${d.id}', 'pending')" class="flex-1 py-1 text-[10px] font-bold rounded-lg ${d.status === 'pending' || !d.status ? 'bg-slate-200 text-slate-700' : 'text-slate-400 hover:bg-slate-100'}">PENDIENTE</button>`;
+            const btnDone = `<button onclick="window.updateDeliveryStatus('${d.id}', 'delivered')" class="flex-1 py-1 text-[10px] font-bold rounded-lg ${isDone ? 'bg-emerald-500 text-white' : 'text-slate-400 hover:bg-emerald-50 hover:text-emerald-600'}">ENTREGADO</button>`;
+            const btnIncomplete = `<button onclick="window.updateDeliveryStatus('${d.id}', 'incomplete')" class="flex-1 py-1 text-[10px] font-bold rounded-lg ${isIncomplete ? 'bg-orange-400 text-white' : 'text-slate-400 hover:bg-orange-50 hover:text-orange-600'}">INCOMPLETO</button>`;
 
             div.innerHTML = `
                 <div class="flex items-start justify-between mb-2">
                     <div>
-                         <h3 class="font-bold text-slate-800 text-lg">${d.client}</h3>
-                         <div class="text-sm text-emerald-600 font-bold"><i class="fas fa-map-marker-alt"></i> ${d.where}</div>
+                         <h3 class="font-bold text-slate-800 text-lg leading-tight">${d.client}</h3>
+                         <div class="text-sm text-emerald-600 font-bold mt-1"><i class="fas fa-map-marker-alt"></i> ${d.where}</div>
                     </div>
-                    <button onclick="window.editDelivery(null)" class="hidden text-slate-400"><i class="fas fa-pen"></i></button> 
-                    <button onclick="window.delShared('deliveries', '${d.id}')" class="text-slate-300 hover:text-red-400"><i class="fas fa-trash-alt"></i></button>
+                    
+                    <div class="flex gap-2">
+                         <button onclick="window.editDelivery(null)" class="hidden text-slate-400"><i class="fas fa-pen"></i></button> 
+                         <button onclick="window.delShared('deliveries', '${d.id}')" class="text-slate-300 hover:text-red-400 w-8 h-8 flex items-center justify-center rounded-full hover:bg-red-50"><i class="fas fa-trash-alt"></i></button>
+                    </div>
                 </div>
                 
-                <div class="bg-slate-50 p-2 rounded-lg text-sm text-slate-600 mb-2 border border-slate-100">
+                <div class="bg-slate-50 p-2 rounded-lg text-sm text-slate-600 mb-3 border border-slate-100">
                     ${itemsText}
                 </div>
 
-                <div class="flex items-center justify-between text-xs text-slate-500">
-                    <div class="flex gap-3">
-                        ${d.when ? `<span><i class="far fa-clock"></i> ${d.when}</span>` : ''}
+                <div class="flex flex-col gap-1 text-xs text-slate-500 mb-3">
+                    <div class="flex items-center gap-3">
+                        ${d.when ? `<span class="font-medium text-slate-700"><i class="far fa-clock text-slate-400"></i> ${d.when}</span>` : ''}
                         ${d.phone ? `<a href="tel:${d.phone}" class="text-blue-500 hover:underline"><i class="fas fa-phone"></i> ${d.phone}</a>` : ''}
                     </div>
+                    <div class="flex gap-2 mt-1">
+                        ${d.seller ? `<span class="text-slate-400"><i class="fas fa-tag"></i> Venta: ${d.seller}</span>` : ''}
+                        ${d.ticket ? `<span class="text-slate-500 font-bold ml-2"><i class="fas fa-receipt"></i> TKT: ${d.ticket}</span>` : ''}
+                    </div>
                 </div>
-                ${d.notes ? `<div class="mt-2 text-xs text-amber-600 bg-amber-50 p-1 px-2 rounded inline-block"><i class="fas fa-sticky-note"></i> ${d.notes}</div>` : ''}
+                
+                ${d.notes ? `<div class="mb-3 text-xs text-amber-600 bg-amber-50 p-1.5 rounded border border-amber-100"><i class="fas fa-sticky-note"></i> ${d.notes}</div>` : ''}
+
+                <div class="flex gap-1 bg-slate-50 p-1 rounded-xl">
+                    ${btnPending}
+                    ${btnDone}
+                    ${btnIncomplete}
+                </div>
             `;
             
             const editBtn = div.querySelector('button.hidden');
@@ -502,6 +618,7 @@ export const UI = {
     
     renderProcedures(items) {
          const list = document.getElementById('proceduresList');
+         if(!list) return;
          list.innerHTML = '';
          if(items.length === 0) { list.innerHTML = this.emptyState('book', 'Sin protocolos'); return; }
 
@@ -521,6 +638,7 @@ export const UI = {
     
     renderScripts(items) {
          const list = document.getElementById('scriptsList');
+         if(!list) return;
          list.innerHTML = '';
          if(items.length === 0) { list.innerHTML = this.emptyState('comment-dots', 'Sin speechs'); return; }
 
@@ -543,6 +661,8 @@ export const UI = {
     openModal(id, data = null) {
         const modal = document.getElementById(id);
         const overlay = document.getElementById('modalOverlay');
+        if(!modal || !overlay) return;
+
         overlay.classList.remove('hidden');
         modal.classList.remove('hidden');
         requestAnimationFrame(() => {
@@ -550,7 +670,7 @@ export const UI = {
             if(window.innerWidth >= 640) modal.classList.remove('sm:translate-y-full');
         });
 
-        // Configuración de modales (Tasks, Delivery, etc)
+        // Configuración de modales
         if (id === 'modal-tasks') {
             document.getElementById('taskModalTitle').innerText = data ? "Editar Tarea" : "Nueva Tarea";
             document.getElementById('taskId').value = data ? data.id : '';
@@ -563,7 +683,7 @@ export const UI = {
         
         if (id === 'modal-delivery') {
             const container = document.getElementById('delItemsContainer');
-            container.innerHTML = '';
+            if(container) container.innerHTML = '';
             document.getElementById('delModalTitle').innerText = data ? "Editar Reparto" : "Nuevo Reparto";
             document.getElementById('delId').value = data ? data.id : '';
             document.getElementById('delClient').value = data ? (data.client || '') : '';
@@ -571,19 +691,38 @@ export const UI = {
             document.getElementById('delWhen').value = data ? (data.when || '') : '';
             document.getElementById('delWhere').value = data ? (data.where || '') : '';
             document.getElementById('delNotes').value = data ? (data.notes || '') : '';
+            
+            // CORRECCIÓN: Check seguro para elementos que podrían no existir en versiones viejas del HTML
+            const sellerIn = document.getElementById('delSeller');
+            if(sellerIn) sellerIn.value = data ? (data.seller || '') : '';
+            
+            const ticketIn = document.getElementById('delTicket');
+            if(ticketIn) ticketIn.value = data ? (data.ticket || '') : '';
+            
             if(data && data.items) data.items.forEach(i => window.addOrderRow('delItemsContainer', i.name, i.amount));
             else window.addOrderRow('delItemsContainer');
         }
         
         if (id === 'modal-orders') {
-            document.getElementById('orderItemsContainer').innerHTML = '';
-            window.addOrderRow('orderItemsContainer');
+            const container = document.getElementById('orderItemsContainer');
+            if(container) { container.innerHTML = ''; window.addOrderRow('orderItemsContainer'); }
+            
             document.getElementById('orderRequester').value = State.username || '';
             document.getElementById('orderNotes').value = '';
+            
+            const typeSel = document.getElementById('orderType');
+            if(typeSel) typeSel.value = 'internal_to_center';
+            
+            const distIn = document.getElementById('orderDistributorName');
+            if(distIn) { distIn.value = ''; distIn.classList.add('hidden'); }
+            
+            // CORRECCIÓN: Eliminada referencia a orderTicket que ya no existe
         }
         
-        // Limpiar otros inputs de modales simples
-        if (id === 'modal-notes') document.getElementById('noteContent').value = '';
+        if (id === 'modal-notes') {
+            document.getElementById('noteContent').value = '';
+            document.getElementById('noteType').value = 'normal';
+        }
         if (id === 'modal-procedures') { document.getElementById('procTitle').value = ''; document.getElementById('procSteps').value = ''; }
         if (id === 'modal-scripts') { document.getElementById('scriptTitle').value = ''; document.getElementById('scriptContent').value = ''; }
     },
@@ -596,7 +735,7 @@ export const UI = {
             if(window.innerWidth >= 640) m.classList.add('sm:translate-y-full');
         });
         setTimeout(() => {
-            overlay.classList.add('hidden');
+            if(overlay) overlay.classList.add('hidden');
             openModals.forEach(m => m.classList.add('hidden'));
         }, 300);
     },
@@ -635,15 +774,20 @@ window.updateTaskStatus = async (id, status, cycle) => {
     if (status === 'done' && cycle && cycle !== 'none') updateData.lastDone = new Date();
     await DataService.update('tasks', id, updateData);
 };
+
+window.updateDeliveryStatus = async (id, status) => {
+    await DataService.update('deliveries', id, { status });
+    UI.toast(`Estado actualizado`);
+};
+
 window.editTask = (task) => UI.openModal('modal-tasks', task);
 window.editDelivery = (d) => UI.openModal('modal-delivery', d);
 window.delTask = async (id) => { if(confirm('¿Eliminar?')) { UI.closeModal(); await DataService.delete('tasks', id); UI.toast("Eliminada"); } };
 window.delItem = async (col, id) => { if(confirm('¿Eliminar?')) await DataService.delete(col, id); };
 window.delShared = async (col, id) => { if(confirm('¿Eliminar Global?')) await DataService.delete(col, id); };
 window.copyScript = (text) => { navigator.clipboard.writeText(text).then(() => UI.toast("Copiado", "success")); };
-window.handleStockImport = async (input) => {}; // Placeholder
+window.handleStockImport = async (input) => {}; 
 window.downloadBackup = async () => {
-    // Implementación rápida de backup si se solicita
     const data = await DataService.generateBackupJSON();
     const blob = new Blob([JSON.stringify(data, null, 2)], {type : 'application/json'});
     const a = document.createElement('a');
