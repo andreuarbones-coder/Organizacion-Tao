@@ -20,10 +20,11 @@ body.branch-centro {
     --accent: #10b981;    /* Emerald 500 */
 }
 
+/* MODIFICADO: Tono Naranja Terracota para Ejemplares */
 body.branch-ejemplares {
-    --primary: #312e81;   /* Indigo 900 */
-    --secondary: #eef2ff; /* Indigo 50 */
-    --accent: #6366f1;    /* Indigo 500 */
+    --primary: #9a3412;   /* Orange 800 (Ladrillo/Terracota) */
+    --secondary: #fff7ed; /* Orange 50 (Crema) */
+    --accent: #f97316;    /* Orange 500 (Naranja suave) */
 }
 
 /* === Utilidades === */
