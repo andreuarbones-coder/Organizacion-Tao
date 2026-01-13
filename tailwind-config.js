@@ -11,10 +11,16 @@ window.tailwind.config = {
             colors: {
                 theme: {
                     // Colores personalizados del Vivero
-                    centro: '#064e3b',       // Verde Oscuro
-                    centroLight: '#34d399',  // Verde Claro
-                    ejemplares: '#312e81',   // Indigo Oscuro
-                    ejemplaresLight: '#818cf8', // Indigo Claro
+                    
+                    // SUCURSAL CENTRO (Verdes)
+                    centro: '#064e3b',       // Emerald 900
+                    centroLight: '#34d399',  // Emerald 400
+                    
+                    // SUCURSAL EJEMPLARES (Naranjas/Terracota) - ACTUALIZADO
+                    ejemplares: '#9a3412',   // Orange 800
+                    ejemplaresLight: '#f97316', // Orange 500
+                    
+                    // UTILIDADES
                     warning: '#f59e0b',
                     danger: '#ef4444'
                 }
