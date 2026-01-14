@@ -10,30 +10,27 @@ const State = {
     wakeLock: null,
     listeners: {},
     stockList: [],
-    pasteTarget: null // Para saber dónde pegar la lista mágica
+    pasteTarget: null 
 };
 
 // === UI MANAGER ===
 export const UI = {
     init() {
-        console.log("Iniciando Jardín OS v11.0...");
+        console.log("Iniciando Jardín OS v11.2...");
         
         try {
             this.setBranch(State.branch);
             this.nav('delivery'); 
             
-            // Fecha Header
             const dateEl = document.getElementById('currentDate');
             if(dateEl) dateEl.innerText = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' });
             
-            // Nombre Usuario
             if (!State.username) {
                 setTimeout(() => document.getElementById('modal-username')?.classList.remove('hidden'), 500);
             }
 
             this.setupEventListeners();
 
-            // Autenticación
             AuthService.init((user) => {
                 const ind = document.getElementById('connectionStatus');
                 const loader = document.getElementById('loadingIndicator');
@@ -61,21 +58,17 @@ export const UI = {
     },
 
     setupEventListeners() {
-        // Toggle Sucursal (Header y Mobile)
         const bindClick = (id, fn) => { const el = document.getElementById(id); if(el) el.onclick = fn; };
 
         bindClick('branchToggleBtn', () => this.toggleBranch());
         
-        // Modales
         document.querySelectorAll('.modal-close').forEach(b => b.onclick = () => this.closeModal());
         const overlay = document.getElementById('modalOverlay');
         if(overlay) overlay.onclick = (e) => { if(e.target === overlay) this.closeModal(); };
 
-        // FAB
         bindClick('mainFab', () => this.handleFab());
         bindClick('wakeLockBtn', () => this.toggleWakeLock());
 
-        // Guardar Nombre
         bindClick('saveUsernameBtn', () => {
             const name = document.getElementById('usernameInput').value.trim();
             if(name) {
@@ -86,7 +79,6 @@ export const UI = {
             }
         });
 
-        // Pedidos: Distribuidor condicional
         const orderTypeSelect = document.getElementById('orderType');
         if(orderTypeSelect) {
             orderTypeSelect.onchange = (e) => {
@@ -95,7 +87,6 @@ export const UI = {
             };
         }
 
-        // Preview de Foto en Reparto
         const fileInput = document.getElementById('delTicketFile');
         if(fileInput) {
             fileInput.onchange = (e) => {
@@ -125,7 +116,7 @@ export const UI = {
         bindClick('saveScriptBtn', () => this.saveScript());
     },
 
-    // --- LOGICA SMART PASTE ---
+    // --- SMART PASTE ---
     
     openPasteModal(targetContainerId) {
         State.pasteTarget = targetContainerId;
@@ -137,8 +128,6 @@ export const UI = {
     processPaste() {
         const text = document.getElementById('pasteContent').value;
         const pasteModal = document.getElementById('modal-paste');
-
-        // Función auxiliar para cerrar solo este modal
         const closePasteOnly = () => {
             pasteModal.classList.add('translate-y-full', 'sm:translate-y-full');
             setTimeout(() => pasteModal.classList.add('hidden'), 300);
@@ -152,34 +141,27 @@ export const UI = {
         lines.forEach(line => {
             line = line.trim();
             if (!line) return;
-
-            // Regex mejorado: Busca un número al inicio.
             const match = line.match(/^(\d+)[\s\-\.xX]*(.+)/);
-            
             let amount = '1';
             let name = line;
-
-            if (match) {
-                amount = match[1];
-                name = match[2];
-            }
-
-            // Limpieza extra
+            if (match) { amount = match[1]; name = match[2]; }
             name = name.replace(/^[.\-xX]+/, '').trim(); 
-
-            if(name) {
-                window.addOrderRow(State.pasteTarget, name, amount);
-                count++;
-            }
+            if(name) { window.addOrderRow(State.pasteTarget, name, amount); count++; }
         });
 
         this.toast(`Pegados ${count} items`);
-        
-        // IMPORTANTE: Cerramos SOLO el modal de pegado, manteniendo el de abajo abierto
         closePasteOnly();
     },
 
-    // --- LOGICA DE GUARDADO ---
+    // --- VISOR DE IMAGENES ---
+    openImageViewer(url) {
+        const modal = document.getElementById('modal-image-viewer');
+        const img = document.getElementById('viewerImage');
+        img.src = url;
+        modal.classList.remove('hidden');
+    },
+
+    // --- GUARDADO ---
 
     async saveTask() {
         const id = document.getElementById('taskId').value;
@@ -266,10 +248,11 @@ export const UI = {
             let ticketUrl = null;
             const fileInput = document.getElementById('delTicketFile');
             
-            // Si hay archivo nuevo seleccionado, subirlo
             if(fileInput && fileInput.files.length > 0) {
                 btn.innerText = "Subiendo foto...";
+                console.log("Iniciando subida de imagen...");
                 ticketUrl = await DataService.uploadImage(fileInput.files[0]);
+                console.log("Imagen subida con éxito:", ticketUrl);
             }
 
             const data = { 
@@ -277,10 +260,12 @@ export const UI = {
                 branch: State.branch
             };
             
+            // IMPORTANTE: Aseguramos que la URL se agregue si existe
             if(ticketUrl) data.ticketImg = ticketUrl;
 
             if(!id) data.status = 'pending';
 
+            console.log("Guardando datos en Firestore...", data);
             if (id) await DataService.update('deliveries', id, data);
             else await DataService.add('deliveries', data);
 
@@ -288,7 +273,7 @@ export const UI = {
             this.closeModal();
 
         } catch (e) { 
-            console.error(e);
+            console.error("Error en saveDelivery:", e);
             this.toast(e.message || "Error al guardar", "error"); 
         } finally {
             btn.disabled = false;
@@ -330,7 +315,7 @@ export const UI = {
         } catch(e) { this.toast("Error", "error"); }
     },
 
-    // --- FUNCIONES VISUALES (Render) ---
+    // --- RENDER ---
 
     renderDeliveries(items) { 
         const list = document.getElementById('deliveryList');
@@ -349,7 +334,7 @@ export const UI = {
             if(isDone) borderClass = 'border-emerald-200 bg-emerald-50/50';
             if(isIncomplete) borderClass = 'border-orange-200 bg-orange-50/50';
 
-            // HTML de Items (Lista vertical con badges)
+            // Items
             let itemsHtml = '';
             if(d.items && d.items.length > 0) {
                 itemsHtml = `<div class="mt-3 space-y-2">`;
@@ -365,13 +350,20 @@ export const UI = {
                 itemsHtml = `<div class="mt-2 text-xs text-slate-400 italic">Sin items detallados</div>`;
             }
 
-            // HTML de Foto Ticket
+            // FOTO TICKET (Mejorada con miniatura y click)
             let photoHtml = '';
             if(d.ticketImg) {
                 photoHtml = `
-                    <a href="${d.ticketImg}" target="_blank" class="block mt-3 w-full bg-slate-100 hover:bg-slate-200 text-slate-500 text-center py-2 rounded-lg text-xs font-bold border border-slate-200 transition-colors">
-                        <i class="fas fa-camera mr-1"></i> Ver Foto Ticket
-                    </a>
+                    <div class="mt-3 bg-slate-50 p-2 rounded-xl border border-slate-200 flex items-center justify-between cursor-pointer active:bg-slate-100 transition-colors" onclick="UI.openImageViewer('${d.ticketImg}')">
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 rounded-lg bg-cover bg-center shadow-sm border border-slate-300" style="background-image: url('${d.ticketImg}')"></div>
+                            <div class="flex flex-col">
+                                <span class="text-xs font-bold text-slate-700">Foto del Ticket</span>
+                                <span class="text-[10px] text-slate-400">Toca para ampliar</span>
+                            </div>
+                        </div>
+                        <i class="fas fa-expand text-slate-400 mr-2"></i>
+                    </div>
                 `;
             }
 
@@ -412,7 +404,6 @@ export const UI = {
                 </div>
             `;
             
-            // Habilitar edición (oculta por ahora)
             const editBtn = div.querySelector('button.hidden');
             if(editBtn) { editBtn.classList.remove('hidden'); editBtn.onclick = () => window.editDelivery(d); }
             
@@ -422,28 +413,23 @@ export const UI = {
 
     openContactSheet(phone) {
         const sheet = document.getElementById('sheet-contact');
-        const cleanPhone = phone.replace(/[^0-9]/g, ''); // Solo números
+        const cleanPhone = phone.replace(/[^0-9]/g, ''); 
         
-        // Configurar botones
         document.getElementById('btnCall').href = `tel:${cleanPhone}`;
-        // Para WhatsApp, asumimos código país si no tiene.
         let waPhone = cleanPhone;
         if(!waPhone.startsWith('54') && waPhone.length >= 10) waPhone = '549' + waPhone;
-        
         document.getElementById('btnWhatsapp').href = `https://wa.me/${waPhone}`;
         
-        // Mostrar Sheet
         document.getElementById('contactSheetTitle').innerText = `Contactar: ${phone}`;
         sheet.classList.remove('hidden');
     },
 
     // --- GENERICOS (Render) ---
-    renderTasks(tasks) { /* ... (Sin cambios mayores, mantenemos compatibilidad) ... */ 
+    renderTasks(tasks) { /* Sin cambios */ 
         const list = document.getElementById('taskList');
         if(!list) return;
         list.innerHTML = '';
         if(tasks.length === 0) { list.innerHTML = this.emptyState('relax', 'Todo listo'); return; }
-        // ... (Lógica de tareas existente) ...
         const prioColor = { critical: 'border-l-red-500', high: 'border-l-orange-500', medium: 'border-l-blue-500', low: 'border-l-emerald-500' };
         const prioText = { critical: 'URGENTE', high: 'ALTA', medium: 'MEDIA', low: 'BAJA' };
         const today = new Date().toDateString();
@@ -485,13 +471,11 @@ export const UI = {
            const div = document.createElement('div');
            div.className = "bg-white rounded-xl p-4 shadow-sm border border-slate-200 mb-3 relative";
            
-           // Labels
            let typeLabel = '';
            if(o.type === 'internal_to_center') typeLabel = '<span class="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded font-bold">EJEMPLARES <i class="fas fa-arrow-right"></i> CENTRO</span>';
            else if(o.type === 'internal_to_branch') typeLabel = '<span class="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded font-bold">CENTRO <i class="fas fa-arrow-right"></i> EJEMPLARES</span>';
            else if(o.type === 'distributor') typeLabel = `<span class="text-[10px] bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-bold"><i class="fas fa-truck"></i> ${o.distributorName || 'PROVEEDOR'}</span>`;
 
-           // Items Verticales
            let itemsHtml = '';
            if(o.items) {
                 itemsHtml = `<div class="mt-3 space-y-1">`;
@@ -524,7 +508,7 @@ export const UI = {
         });
     },
 
-    renderNotes(notes) { /* ... Sin cambios ... */
+    renderNotes(notes) { /* Sin cambios */
         const list = document.getElementById('notesList');
         if(!list) return;
         list.innerHTML = '';
@@ -542,7 +526,7 @@ export const UI = {
         });
     },
 
-    renderProcedures(items) { /* ... Sin cambios ... */
+    renderProcedures(items) { /* Sin cambios */
          const list = document.getElementById('proceduresList');
          if(!list) return;
          list.innerHTML = '';
@@ -556,7 +540,7 @@ export const UI = {
          });
     },
 
-    renderScripts(items) { /* ... Sin cambios ... */
+    renderScripts(items) { /* Sin cambios */
          const list = document.getElementById('scriptsList');
          if(!list) return;
          list.innerHTML = '';
@@ -668,8 +652,6 @@ export const UI = {
             // Foto reset
             window.clearDelPhoto();
             if(data && data.ticketImg) {
-                // Si ya tiene foto guardada, podríamos mostrarla, pero por simplicidad de este upload básico
-                // mostramos texto indicando que hay una. (La UI principal ya tiene el link para verla).
                 document.getElementById('delPhotoStatus').innerText = "Foto ya guardada (subir otra reemplaza)";
             }
 
