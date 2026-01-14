@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Jardín OS v10.5</title>
+    <title>Jardín OS v11.0</title>
     
     <!-- === MANIFIESTO PWA === -->
     <link rel="manifest" href='data:application/manifest+json,{"name":"Jardín OS","short_name":"Jardín OS","start_url":".","display":"standalone","background_color":"#1e293b","theme_color":"#0f172a","description":"Gestión Integral de Vivero","icons":[{"src":"https://cdn-icons-png.flaticon.com/512/1598/1598196.png","sizes":"192x192","type":"image/png"}]}'>
@@ -32,13 +32,20 @@
         
         <!-- HEADER -->
         <header class="flex-none h-[64px] shadow-sm flex items-center justify-between px-4 z-20 text-white transition-colors duration-500" style="background-color: var(--primary);">
-            <div>
-                <h1 id="pageTitle" class="font-bold text-lg leading-none">Repartos</h1>
-                <span id="currentDate" class="text-xs opacity-80 capitalize">Cargando...</span>
+            <!-- LOGO / TITULO -->
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center border border-white/10 shadow-sm backdrop-blur-md">
+                    <i class="fas fa-seedling text-lg text-white/90"></i>
+                </div>
+                <div>
+                    <h1 id="pageTitle" class="font-bold text-lg leading-none">Repartos</h1>
+                    <span id="currentDate" class="text-xs opacity-80 capitalize">Cargando...</span>
+                </div>
             </div>
             
+            <!-- CONTROLES DERECHA -->
             <div class="flex items-center gap-3">
-                 <button id="branchToggleBtn" class="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-full transition-colors border border-white/10 active:scale-95">
+                 <button id="branchToggleBtn" class="hidden sm:flex items-center gap-2 bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-full transition-colors border border-white/10 active:scale-95">
                     <span id="settingsBranchName" class="text-[10px] font-bold uppercase tracking-wider">Centro Tao</span>
                     <i class="fas fa-exchange-alt text-xs opacity-70"></i>
                  </button>
@@ -77,7 +84,7 @@
                 </div>
             </div>
 
-            <!-- 3. VIEW: DELIVERY (Principal) -->
+            <!-- 3. VIEW: DELIVERY -->
             <div id="view-delivery" class="view-section scroll-area hidden p-4">
                 <div id="deliveryList" class="space-y-4"></div>
             </div>
@@ -135,6 +142,9 @@
             </div>
             <div class="p-5 space-y-3">
                 <div class="text-xs font-bold text-slate-400 uppercase">Sistema</div>
+                <button id="branchToggleBtnMobile" onclick="UI.toggleBranch()" class="w-full py-3 px-4 rounded-xl bg-slate-50 text-slate-600 font-bold flex items-center gap-3 text-sm border border-slate-200">
+                    <i class="fas fa-exchange-alt"></i> <span>Cambiar Sucursal</span>
+                </button>
                 <button onclick="window.downloadBackup()" class="w-full py-3 px-4 rounded-xl bg-blue-50 text-blue-600 font-bold flex items-center gap-3 text-sm">
                     <i class="fas fa-cloud-download-alt"></i> <span>Descargar Backup JSON</span>
                 </button>
@@ -203,7 +213,12 @@
                 <h2 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2 flex-none" id="orderModalTitle"><i class="fas fa-shopping-basket text-blue-600"></i> Nuevo Pedido</h2>
                 
                 <div class="flex-grow overflow-y-auto pr-2 space-y-2 mb-4" id="orderItemsContainer"></div>
-                <button onclick="window.addOrderRow()" class="mb-4 py-2 px-4 rounded-lg border-2 border-dashed border-slate-300 text-slate-500 font-bold hover:border-blue-400 hover:text-blue-500 transition-colors w-full">+ Agregar Ítem</button>
+                
+                <div class="flex gap-2 mb-4">
+                    <button onclick="window.addOrderRow()" class="flex-1 py-2 px-4 rounded-lg border-2 border-dashed border-slate-300 text-slate-500 font-bold hover:border-blue-400 hover:text-blue-500 transition-colors">+ Item</button>
+                    <!-- BOTÓN PEGADO MÁGICO -->
+                    <button onclick="UI.openPasteModal('orderItemsContainer')" class="w-12 flex items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100 font-bold"><i class="fas fa-paste"></i></button>
+                </div>
 
                 <div class="flex-none space-y-3">
                      <div>
@@ -216,7 +231,6 @@
                      </div>
                     <input type="text" id="orderDistributorName" class="w-full p-3 bg-slate-50 rounded-xl border border-slate-200 outline-none text-sm hidden" placeholder="Nombre del Distribuidor">
                     
-                    <!-- Solo Requester aquí, Ticket movido a Repartos -->
                     <input type="text" id="orderRequester" class="w-full p-3 bg-slate-50 rounded-xl border border-slate-200 outline-none text-sm" placeholder="¿Quién solicita?">
                     
                     <textarea id="orderNotes" rows="2" class="w-full p-3 bg-slate-50 rounded-xl border border-slate-200 outline-none text-sm" placeholder="Notas/Comentarios (opcional)"></textarea>
@@ -250,10 +264,31 @@
 
                 <label class="text-xs font-bold text-slate-400 uppercase mb-2 block">Items a entregar</label>
                 <div class="flex-grow overflow-y-auto pr-2 space-y-2 mb-4" id="delItemsContainer"></div>
-                <button onclick="window.addOrderRow('delItemsContainer')" class="mb-4 py-2 px-4 rounded-lg border-2 border-dashed border-slate-300 text-slate-500 font-bold hover:border-indigo-400 hover:text-indigo-500 transition-colors w-full">+ Agregar Ítem</button>
+                
+                <div class="flex gap-2 mb-4">
+                    <button onclick="window.addOrderRow('delItemsContainer')" class="flex-1 py-2 px-4 rounded-lg border-2 border-dashed border-slate-300 text-slate-500 font-bold hover:border-indigo-400 hover:text-indigo-500 transition-colors">+ Item</button>
+                    <!-- BOTÓN PEGADO MÁGICO -->
+                    <button onclick="UI.openPasteModal('delItemsContainer')" class="w-12 flex items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100 font-bold"><i class="fas fa-paste"></i></button>
+                </div>
 
                 <div class="flex-none">
                     <textarea id="delNotes" rows="2" class="w-full p-3 bg-slate-50 rounded-xl border border-slate-200 outline-none text-sm mb-3" placeholder="Comentarios del reparto (Timbre, etc)"></textarea>
+                    
+                    <!-- ZONA DE FOTOS TICKET -->
+                    <div class="mb-4">
+                        <div class="flex items-center gap-3">
+                            <input type="file" id="delTicketFile" accept="image/*" capture="environment" class="hidden">
+                            <button onclick="document.getElementById('delTicketFile').click()" class="bg-slate-100 text-slate-500 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-slate-200 border border-slate-200">
+                                <i class="fas fa-camera"></i> <span>Adjuntar Foto</span>
+                            </button>
+                            <span id="delPhotoStatus" class="text-xs text-slate-400 italic">Sin foto</span>
+                        </div>
+                        <div id="delPhotoPreview" class="hidden mt-2 relative w-20 h-20 rounded-lg overflow-hidden border border-slate-200">
+                            <img src="" class="w-full h-full object-cover">
+                            <button onclick="window.clearDelPhoto()" class="absolute top-0 right-0 bg-red-500 text-white w-5 h-5 flex items-center justify-center text-xs rounded-bl-lg"><i class="fas fa-times"></i></button>
+                        </div>
+                    </div>
+
                     <button id="saveDelBtn" class="w-full py-3.5 bg-indigo-600 text-white rounded-xl shadow-lg font-bold active:scale-95">Agendar Reparto</button>
                 </div>
             </div>
@@ -306,6 +341,37 @@
             </div>
         </div>
 
+        <!-- MODAL: SMART PASTE (NUEVO) -->
+        <div id="modal-paste" class="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl shadow-2xl hidden transform transition-transform duration-300 translate-y-full sm:translate-y-0 z-50">
+            <div class="p-5">
+                <h2 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2"><i class="fas fa-clipboard text-indigo-500"></i> Pegado Mágico</h2>
+                <p class="text-xs text-slate-500 mb-3">Pega la lista de WhatsApp tal cual viene. El sistema intentará detectar cantidades y productos.</p>
+                <textarea id="pasteContent" rows="8" class="w-full p-3 bg-slate-50 rounded-xl border border-slate-200 outline-none text-sm font-mono leading-relaxed mb-4" placeholder="Ej:&#10;2 macetas&#10;1 tierra 50dm&#10;jazmin"></textarea>
+                <input type="hidden" id="pasteTargetContainer">
+                <button onclick="UI.processPaste()" class="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg active:scale-95">Procesar Lista</button>
+                <button onclick="document.getElementById('modal-paste').classList.add('hidden', 'translate-y-full')" class="w-full mt-2 py-3 text-slate-400 font-bold">Cancelar</button>
+            </div>
+        </div>
+
+        <!-- SHEET: CONTACT ACTION (NUEVO) -->
+        <div id="sheet-contact" class="hidden fixed inset-0 bg-black/60 z-[60] flex items-end justify-center backdrop-blur-sm">
+            <div class="bg-white w-full sm:max-w-md rounded-t-2xl p-4 animate-slide-in-bottom">
+                <div class="w-12 h-1 bg-slate-200 rounded-full mx-auto mb-4"></div>
+                <h3 class="text-center font-bold text-slate-800 mb-6 text-lg" id="contactSheetTitle">Opciones de Contacto</h3>
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <a id="btnCall" href="#" class="flex flex-col items-center justify-center gap-2 bg-slate-50 p-6 rounded-2xl border border-slate-100 active:bg-slate-100">
+                        <div class="w-12 h-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-2xl"><i class="fas fa-phone"></i></div>
+                        <span class="font-bold text-slate-700">Llamar</span>
+                    </a>
+                    <a id="btnWhatsapp" href="#" target="_blank" class="flex flex-col items-center justify-center gap-2 bg-slate-50 p-6 rounded-2xl border border-slate-100 active:bg-slate-100">
+                        <div class="w-12 h-12 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-2xl"><i class="fab fa-whatsapp"></i></div>
+                        <span class="font-bold text-slate-700">WhatsApp</span>
+                    </a>
+                </div>
+                <button onclick="document.getElementById('sheet-contact').classList.add('hidden')" class="w-full py-4 text-slate-400 font-bold">Cancelar</button>
+            </div>
+        </div>
+
     </div>
 
     <!-- TOAST CONTAINER -->
@@ -326,9 +392,22 @@
         window.addOrderRow = (containerId = 'orderItemsContainer', val='', amount='') => {
             const container = document.getElementById(containerId);
             const row = document.createElement('div');
-            row.className = 'flex gap-2 mb-2 order-row';
-            row.innerHTML = `<input type="text" list="stockItemsList" value="${val}" class="order-item w-[70%] p-2 bg-slate-50 rounded-lg border border-slate-200 text-sm outline-none" placeholder="Item"><input type="text" value="${amount}" class="order-amount w-[20%] p-2 bg-slate-50 rounded-lg border border-slate-200 text-sm outline-none" placeholder="#"><button onclick="this.parentElement.remove()" class="w-[10%] text-red-400 hover:text-red-600"><i class="fas fa-times"></i></button>`;
+            row.className = 'flex gap-2 mb-2 order-row animate-fade-in';
+            row.innerHTML = `<input type="text" list="stockItemsList" value="${val}" class="order-item w-[70%] p-2 bg-slate-50 rounded-lg border border-slate-200 text-sm outline-none font-medium text-slate-700" placeholder="Item"><input type="text" value="${amount}" class="order-amount w-[20%] p-2 bg-slate-50 rounded-lg border border-slate-200 text-sm outline-none text-center font-bold text-slate-600" placeholder="#"><button onclick="this.parentElement.remove()" class="w-[10%] text-red-400 hover:text-red-600 active:scale-90 transition-transform"><i class="fas fa-times"></i></button>`;
             container.appendChild(row);
+        };
+
+        // Helper para limpiar foto (será llamado por UI manager también)
+        window.clearDelPhoto = () => {
+            const input = document.getElementById('delTicketFile');
+            const preview = document.getElementById('delPhotoPreview');
+            const status = document.getElementById('delPhotoStatus');
+            input.value = '';
+            preview.classList.add('hidden');
+            preview.querySelector('img').src = '';
+            status.innerText = "Sin foto";
+            status.classList.remove('text-emerald-600');
+            status.classList.add('text-slate-400');
         };
     </script>
 </body>
