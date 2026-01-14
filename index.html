@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Jardín OS v11.0</title>
+    <title>Jardín OS v11.1</title>
     
     <!-- === MANIFIESTO PWA === -->
     <link rel="manifest" href='data:application/manifest+json,{"name":"Jardín OS","short_name":"Jardín OS","start_url":".","display":"standalone","background_color":"#1e293b","theme_color":"#0f172a","description":"Gestión Integral de Vivero","icons":[{"src":"https://cdn-icons-png.flaticon.com/512/1598/1598196.png","sizes":"192x192","type":"image/png"}]}'>
@@ -216,7 +216,6 @@
                 
                 <div class="flex gap-2 mb-4">
                     <button onclick="window.addOrderRow()" class="flex-1 py-2 px-4 rounded-lg border-2 border-dashed border-slate-300 text-slate-500 font-bold hover:border-blue-400 hover:text-blue-500 transition-colors">+ Item</button>
-                    <!-- BOTÓN PEGADO MÁGICO -->
                     <button onclick="UI.openPasteModal('orderItemsContainer')" class="w-12 flex items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100 font-bold"><i class="fas fa-paste"></i></button>
                 </div>
 
@@ -239,57 +238,67 @@
             </div>
         </div>
 
-        <!-- MODAL: DELIVERY -->
+        <!-- MODAL: DELIVERY (Scroll Fix) -->
         <div id="modal-delivery" class="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl shadow-2xl overflow-hidden hidden transform transition-transform duration-300 translate-y-full sm:translate-y-0">
-            <div class="p-5 flex flex-col h-[85vh] sm:h-auto">
-                <h2 class="text-xl font-bold text-slate-800 mb-4 flex-none" id="delModalTitle">Nuevo Reparto</h2>
+            <!-- WRAPPER: Flex vertical con altura máxima -->
+            <div class="flex flex-col h-[85vh] sm:h-auto sm:max-h-[85vh]">
                 
-                <input type="hidden" id="delId">
-
-                <div class="flex-none space-y-3 mb-4">
-                    <input type="text" id="delClient" class="w-full p-3 bg-slate-50 rounded-xl outline-none border border-slate-200" placeholder="Cliente">
-                    
-                    <div class="grid grid-cols-2 gap-3">
-                        <input type="tel" id="delPhone" class="p-3 bg-slate-50 rounded-xl outline-none border border-slate-200 text-sm" placeholder="Teléfono">
-                        <input type="text" id="delWhen" class="p-3 bg-slate-50 rounded-xl outline-none border border-slate-200 text-sm" placeholder="Fecha y Hora">
-                    </div>
-                    
-                    <div class="grid grid-cols-2 gap-3">
-                         <input type="text" id="delSeller" class="p-3 bg-slate-50 rounded-xl outline-none border border-slate-200 text-sm" placeholder="Vendedor">
-                         <input type="text" id="delTicket" class="p-3 bg-slate-50 rounded-xl outline-none border border-slate-200 text-sm" placeholder="Nº Ticket">
-                    </div>
-
-                    <input type="text" id="delWhere" class="w-full p-3 bg-slate-50 rounded-xl outline-none border border-slate-200 text-sm" placeholder="Dirección de entrega">
+                <!-- HEADER (FIJO) -->
+                <div class="p-5 border-b border-slate-100 flex-none bg-white z-10 rounded-t-2xl">
+                    <h2 class="text-xl font-bold text-slate-800" id="delModalTitle">Nuevo Reparto</h2>
                 </div>
 
-                <label class="text-xs font-bold text-slate-400 uppercase mb-2 block">Items a entregar</label>
-                <div class="flex-grow overflow-y-auto pr-2 space-y-2 mb-4" id="delItemsContainer"></div>
-                
-                <div class="flex gap-2 mb-4">
-                    <button onclick="window.addOrderRow('delItemsContainer')" class="flex-1 py-2 px-4 rounded-lg border-2 border-dashed border-slate-300 text-slate-500 font-bold hover:border-indigo-400 hover:text-indigo-500 transition-colors">+ Item</button>
-                    <!-- BOTÓN PEGADO MÁGICO -->
-                    <button onclick="UI.openPasteModal('delItemsContainer')" class="w-12 flex items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100 font-bold"><i class="fas fa-paste"></i></button>
-                </div>
-
-                <div class="flex-none">
-                    <textarea id="delNotes" rows="2" class="w-full p-3 bg-slate-50 rounded-xl border border-slate-200 outline-none text-sm mb-3" placeholder="Comentarios del reparto (Timbre, etc)"></textarea>
+                <!-- BODY (CON SCROLL) -->
+                <!-- Aquí está la clave: todo el contenido está dentro de este div scrollable -->
+                <div class="p-5 overflow-y-auto flex-grow pb-10">
                     
-                    <!-- ZONA DE FOTOS TICKET -->
-                    <div class="mb-4">
-                        <div class="flex items-center gap-3">
-                            <input type="file" id="delTicketFile" accept="image/*" capture="environment" class="hidden">
-                            <button onclick="document.getElementById('delTicketFile').click()" class="bg-slate-100 text-slate-500 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-slate-200 border border-slate-200">
-                                <i class="fas fa-camera"></i> <span>Adjuntar Foto</span>
-                            </button>
-                            <span id="delPhotoStatus" class="text-xs text-slate-400 italic">Sin foto</span>
+                    <input type="hidden" id="delId">
+
+                    <div class="space-y-3 mb-4">
+                        <input type="text" id="delClient" class="w-full p-3 bg-slate-50 rounded-xl outline-none border border-slate-200" placeholder="Cliente">
+                        
+                        <div class="grid grid-cols-2 gap-3">
+                            <input type="tel" id="delPhone" class="p-3 bg-slate-50 rounded-xl outline-none border border-slate-200 text-sm" placeholder="Teléfono">
+                            <input type="text" id="delWhen" class="p-3 bg-slate-50 rounded-xl outline-none border border-slate-200 text-sm" placeholder="Fecha y Hora">
                         </div>
-                        <div id="delPhotoPreview" class="hidden mt-2 relative w-20 h-20 rounded-lg overflow-hidden border border-slate-200">
-                            <img src="" class="w-full h-full object-cover">
-                            <button onclick="window.clearDelPhoto()" class="absolute top-0 right-0 bg-red-500 text-white w-5 h-5 flex items-center justify-center text-xs rounded-bl-lg"><i class="fas fa-times"></i></button>
+                        
+                        <div class="grid grid-cols-2 gap-3">
+                             <input type="text" id="delSeller" class="p-3 bg-slate-50 rounded-xl outline-none border border-slate-200 text-sm" placeholder="Vendedor">
+                             <input type="text" id="delTicket" class="p-3 bg-slate-50 rounded-xl outline-none border border-slate-200 text-sm" placeholder="Nº Ticket">
                         </div>
+
+                        <input type="text" id="delWhere" class="w-full p-3 bg-slate-50 rounded-xl outline-none border border-slate-200 text-sm" placeholder="Dirección de entrega">
                     </div>
 
-                    <button id="saveDelBtn" class="w-full py-3.5 bg-indigo-600 text-white rounded-xl shadow-lg font-bold active:scale-95">Agendar Reparto</button>
+                    <label class="text-xs font-bold text-slate-400 uppercase mb-2 block">Items a entregar</label>
+                    <div class="space-y-2 mb-4" id="delItemsContainer"></div>
+                    
+                    <div class="flex gap-2 mb-4">
+                        <button onclick="window.addOrderRow('delItemsContainer')" class="flex-1 py-2 px-4 rounded-lg border-2 border-dashed border-slate-300 text-slate-500 font-bold hover:border-indigo-400 hover:text-indigo-500 transition-colors">+ Item</button>
+                        <button onclick="UI.openPasteModal('delItemsContainer')" class="w-12 flex items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100 font-bold"><i class="fas fa-paste"></i></button>
+                    </div>
+
+                    <div class="space-y-4">
+                        <textarea id="delNotes" rows="2" class="w-full p-3 bg-slate-50 rounded-xl border border-slate-200 outline-none text-sm" placeholder="Comentarios del reparto (Timbre, etc)"></textarea>
+                        
+                        <!-- ZONA DE FOTOS TICKET -->
+                        <div>
+                            <div class="flex items-center gap-3">
+                                <input type="file" id="delTicketFile" accept="image/*" capture="environment" class="hidden">
+                                <button onclick="document.getElementById('delTicketFile').click()" class="bg-slate-100 text-slate-500 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-slate-200 border border-slate-200">
+                                    <i class="fas fa-camera"></i> <span>Adjuntar Foto</span>
+                                </button>
+                                <span id="delPhotoStatus" class="text-xs text-slate-400 italic">Sin foto</span>
+                            </div>
+                            <div id="delPhotoPreview" class="hidden mt-2 relative w-20 h-20 rounded-lg overflow-hidden border border-slate-200">
+                                <img src="" class="w-full h-full object-cover">
+                                <button onclick="window.clearDelPhoto()" class="absolute top-0 right-0 bg-red-500 text-white w-5 h-5 flex items-center justify-center text-xs rounded-bl-lg"><i class="fas fa-times"></i></button>
+                            </div>
+                        </div>
+
+                        <!-- Botón Guardar -->
+                        <button id="saveDelBtn" class="w-full py-3.5 bg-indigo-600 text-white rounded-xl shadow-lg font-bold active:scale-95 mb-4">Agendar Reparto</button>
+                    </div>
                 </div>
             </div>
         </div>
