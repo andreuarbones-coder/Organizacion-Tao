@@ -21,4 +21,4 @@ const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 export const auth = getAuth(app);
 
-console.log("Firebase inicializado correctamente: app-jardin-v4");
+console.log("Firebase inicializado correctamente: app-jardin-v4 (v9.22.0)");
