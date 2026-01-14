@@ -136,7 +136,15 @@ export const UI = {
 
     processPaste() {
         const text = document.getElementById('pasteContent').value;
-        if (!text || !State.pasteTarget) return this.closeModal();
+        const pasteModal = document.getElementById('modal-paste');
+
+        // Función auxiliar para cerrar solo este modal
+        const closePasteOnly = () => {
+            pasteModal.classList.add('translate-y-full', 'sm:translate-y-full');
+            setTimeout(() => pasteModal.classList.add('hidden'), 300);
+        };
+
+        if (!text || !State.pasteTarget) return closePasteOnly();
 
         const lines = text.split(/\r?\n/);
         let count = 0;
@@ -145,9 +153,7 @@ export const UI = {
             line = line.trim();
             if (!line) return;
 
-            // Regex: Busca un número al inicio (cantidad). Si no hay, asume 1.
-            // Ej: "2 macetas" -> match[1]="2", match[2]="macetas"
-            // Ej: "tierra" -> match=null -> qty=1, name="tierra"
+            // Regex mejorado: Busca un número al inicio.
             const match = line.match(/^(\d+)[\s\-\.xX]*(.+)/);
             
             let amount = '1';
@@ -158,8 +164,8 @@ export const UI = {
                 name = match[2];
             }
 
-            // Limpieza extra del nombre
-            name = name.replace(/^[.\-xX]+/, '').trim(); // Quitar guiones o 'x' al inicio
+            // Limpieza extra
+            name = name.replace(/^[.\-xX]+/, '').trim(); 
 
             if(name) {
                 window.addOrderRow(State.pasteTarget, name, amount);
@@ -168,7 +174,9 @@ export const UI = {
         });
 
         this.toast(`Pegados ${count} items`);
-        this.closeModal(); // Cierra el modal de pegado, vuelve al formulario
+        
+        // IMPORTANTE: Cerramos SOLO el modal de pegado, manteniendo el de abajo abierto
+        closePasteOnly();
     },
 
     // --- LOGICA DE GUARDADO ---
@@ -269,10 +277,6 @@ export const UI = {
                 branch: State.branch
             };
             
-            // Solo actualizamos la URL si se subió una nueva, o mantenemos si no se tocó
-            // (Nota: para edición compleja de mantener foto vieja se requeriría leer el objeto actual, 
-            //  aquí asumimos que si editas y no subes nada, no se borra la vieja en la DB si hacemos merge, 
-            //  pero DataService.update reemplaza campos. Por simplicidad, agregamos ticketUrl solo si existe)
             if(ticketUrl) data.ticketImg = ticketUrl;
 
             if(!id) data.status = 'pending';
@@ -422,8 +426,7 @@ export const UI = {
         
         // Configurar botones
         document.getElementById('btnCall').href = `tel:${cleanPhone}`;
-        // Para WhatsApp, asumimos código país si no tiene. Pero mejor dejar crudo o agregar 549 si es Argentina.
-        // Intento inteligente: si empieza con 11 o 2..., agregar 549. Si ya tiene 54, dejar.
+        // Para WhatsApp, asumimos código país si no tiene.
         let waPhone = cleanPhone;
         if(!waPhone.startsWith('54') && waPhone.length >= 10) waPhone = '549' + waPhone;
         
@@ -449,7 +452,6 @@ export const UI = {
             if (t.cycle && t.cycle !== 'none') {
                 if (t.lastDone) { const doneDate = new Date(t.lastDone.seconds * 1000).toDateString(); isDone = (doneDate === today); }
             } else { isDone = t.status === 'done'; }
-            const isPartial = t.status === 'partial';
             
             const div = document.createElement('div');
             div.className = `bg-white rounded-xl p-4 shadow-sm border-l-4 ${prioColor[t.priority] || 'border-l-slate-300'} flex gap-3 ${isDone ? 'opacity-50' : ''}`;
