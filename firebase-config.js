@@ -2,6 +2,8 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
 import { getFirestore } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+// NUEVO: Importamos Storage para subir imágenes
+import { getStorage } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-storage.js";
 
 // === TU CONFIGURACIÓN DE FIREBASE (Credenciales Reales) ===
 const firebaseConfig = {
@@ -20,5 +22,7 @@ const app = initializeApp(firebaseConfig);
 // 2. Inicializamos y EXPORTAMOS los servicios para que los use el resto de la app
 export const db = getFirestore(app);
 export const auth = getAuth(app);
+// NUEVO: Exportamos Storage
+export const storage = getStorage(app);
 
-console.log("Firebase inicializado correctamente: app-jardin-v4 (v9.22.0)");
+console.log("Firebase inicializado correctamente: app-jardin-v4 (v9.22.0) + Storage");
