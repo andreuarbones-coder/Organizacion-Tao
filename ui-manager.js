@@ -16,7 +16,7 @@ const State = {
 // === UI MANAGER ===
 export const UI = {
     init() {
-        console.log("Iniciando Jardín OS v11.2...");
+        console.log("Iniciando Jardín OS v11.4..."); // Versión actualizada
         
         try {
             this.setBranch(State.branch);
@@ -63,8 +63,25 @@ export const UI = {
         bindClick('branchToggleBtn', () => this.toggleBranch());
         
         document.querySelectorAll('.modal-close').forEach(b => b.onclick = () => this.closeModal());
+        
+        // CORRECCIÓN: Lógica mejorada para el cierre de modales
         const overlay = document.getElementById('modalOverlay');
-        if(overlay) overlay.onclick = (e) => { if(e.target === overlay) this.closeModal(); };
+        if(overlay) {
+            let clickStartTarget = null;
+            
+            // Detectamos dónde EMPIEZA el click (al bajar el botón del mouse)
+            overlay.onmousedown = (e) => {
+                clickStartTarget = e.target;
+            };
+
+            // Solo cerramos si el click EMPEZÓ y TERMINÓ en el overlay (fondo oscuro)
+            // Esto evita cerrar el modal si estás seleccionando texto y sueltas el mouse afuera
+            overlay.onclick = (e) => { 
+                if(e.target === overlay && clickStartTarget === overlay) {
+                    this.closeModal(); 
+                }
+            };
+        }
 
         bindClick('mainFab', () => this.handleFab());
         bindClick('wakeLockBtn', () => this.toggleWakeLock());
@@ -250,9 +267,7 @@ export const UI = {
             
             if(fileInput && fileInput.files.length > 0) {
                 btn.innerText = "Subiendo foto...";
-                console.log("Iniciando subida de imagen...");
                 ticketUrl = await DataService.uploadImage(fileInput.files[0]);
-                console.log("Imagen subida con éxito:", ticketUrl);
             }
 
             const data = { 
@@ -260,12 +275,10 @@ export const UI = {
                 branch: State.branch
             };
             
-            // IMPORTANTE: Aseguramos que la URL se agregue si existe
             if(ticketUrl) data.ticketImg = ticketUrl;
 
             if(!id) data.status = 'pending';
 
-            console.log("Guardando datos en Firestore...", data);
             if (id) await DataService.update('deliveries', id, data);
             else await DataService.add('deliveries', data);
 
@@ -350,7 +363,7 @@ export const UI = {
                 itemsHtml = `<div class="mt-2 text-xs text-slate-400 italic">Sin items detallados</div>`;
             }
 
-            // FOTO TICKET (Mejorada con miniatura y click)
+            // FOTO TICKET
             let photoHtml = '';
             if(d.ticketImg) {
                 photoHtml = `
@@ -477,9 +490,15 @@ export const UI = {
            else if(o.type === 'distributor') typeLabel = `<span class="text-[10px] bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-bold"><i class="fas fa-truck"></i> ${o.distributorName || 'PROVEEDOR'}</span>`;
 
            let itemsHtml = '';
+           let textForCopy = `*PEDIDO: ${o.requester}*\n`;
+           if(o.type === 'distributor') textForCopy += `Proveedor: ${o.distributorName || 'N/A'}\n`;
+           if(o.notes) textForCopy += `Notas: ${o.notes}\n`;
+           textForCopy += `\n`;
+
            if(o.items) {
                 itemsHtml = `<div class="mt-3 space-y-1">`;
                 o.items.forEach(i => {
+                     textForCopy += `${i.amount} ${i.name}\n`;
                      itemsHtml += `
                         <div class="flex justify-between items-center bg-slate-50 p-1.5 rounded text-xs border border-slate-100">
                             <span class="font-medium text-slate-700">${i.name}</span>
@@ -488,6 +507,8 @@ export const UI = {
                 });
                 itemsHtml += `</div>`;
            }
+           
+           const encodedCopy = encodeURIComponent(textForCopy);
 
            div.innerHTML = `
                 <div class="flex justify-between items-start mb-1">
@@ -495,7 +516,10 @@ export const UI = {
                         ${typeLabel}
                         <div class="font-bold text-slate-800 mt-2 text-sm">${o.requester} <span class="font-normal text-slate-400">solicita:</span></div>
                     </div>
-                    <button onclick="window.delShared('orders', '${o.id}')" class="text-slate-300 hover:text-red-400"><i class="fas fa-trash-alt"></i></button>
+                    <div class="flex gap-2">
+                        <button onclick="window.copyOrderList('${encodedCopy}')" class="text-slate-300 hover:text-indigo-500 w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-50"><i class="far fa-copy"></i></button>
+                        <button onclick="window.delShared('orders', '${o.id}')" class="text-slate-300 hover:text-red-400 w-8 h-8 flex items-center justify-center rounded-full hover:bg-red-50"><i class="fas fa-trash-alt"></i></button>
+                    </div>
                 </div>
                 ${itemsHtml}
                 ${o.notes ? `<div class="text-xs text-slate-500 italic mt-3 bg-slate-50 p-2 rounded">"${o.notes}"</div>` : ''}
@@ -703,4 +727,5 @@ window.delTask = async (id) => { if(confirm('¿Eliminar?')) { UI.closeModal(); a
 window.delItem = async (c, id) => { if(confirm('¿Eliminar?')) await DataService.delete(c, id); };
 window.delShared = async (c, id) => { if(confirm('¿Eliminar Global?')) await DataService.delete(c, id); };
 window.copyScript = (t) => { navigator.clipboard.writeText(t).then(()=>UI.toast("Copiado")); };
+window.copyOrderList = (encoded) => { const text = decodeURIComponent(encoded); navigator.clipboard.writeText(text).then(()=>UI.toast("Lista copiada")); };
 window.downloadBackup = async () => { const d=await DataService.generateBackupJSON(); const b=new Blob([JSON.stringify(d,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=`backup_${new Date().toISOString().slice(0,10)}.json`; a.click(); };
