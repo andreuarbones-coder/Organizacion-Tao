@@ -1,4 +1,7 @@
+// Importamos la base de datos y autenticación ya inicializadas desde tu config
 import { db, auth } from './firebase-config.js';
+
+// Importamos las herramientas de Firestore y Auth (Versión 9.22.0, IGUAL que en config)
 import { 
     collection, 
     addDoc, 
@@ -10,10 +13,25 @@ import {
     orderBy, 
     getDocs 
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+
 import { 
     signInAnonymously, 
     onAuthStateChanged 
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+
+// === UTILIDAD: LIMPIEZA DE DATOS ===
+// Firestore falla si le envías un campo con valor 'undefined'. Esta función lo evita.
+const sanitize = (data) => {
+    const cleanData = {};
+    Object.keys(data).forEach(key => {
+        const val = data[key];
+        // Si es undefined, no lo incluimos. Si es null o válido, sí.
+        if (val !== undefined) {
+            cleanData[key] = val;
+        }
+    });
+    return cleanData;
+};
 
 // === SERVICIO DE AUTENTICACIÓN ===
 export const AuthService = {
@@ -25,9 +43,11 @@ export const AuthService = {
 
     async signIn() {
         try {
+            console.log("Intentando login anónimo...");
             await signInAnonymously(auth);
         } catch (error) {
-            console.error("Error en Auth:", error);
+            console.error("Error crítico en Auth:", error);
+            alert("Error de conexión con la base de datos. Verifica tu internet.");
         }
     }
 };
@@ -35,11 +55,11 @@ export const AuthService = {
 // === SERVICIO DE DATOS (CRUD) ===
 export const DataService = {
     
-    // Escuchar cambios en tiempo real (Live Listeners)
+    // Escuchar cambios en tiempo real
     subscribeToCollection(collName, callback) {
-        const q = query(collection(db, collName), orderBy('createdAt', 'desc')); // Orden por defecto
+        // Ordenamos por fecha de creación (createdAt) descendente
+        const q = query(collection(db, collName), orderBy('createdAt', 'desc'));
         
-        // Retorna la función 'unsubscribe' para detener la escucha cuando sea necesario
         return onSnapshot(q, (snapshot) => {
             const items = snapshot.docs.map(doc => ({
                 id: doc.id,
@@ -47,21 +67,26 @@ export const DataService = {
             }));
             callback(items);
         }, (error) => {
-            console.error(`Error escuchando ${collName}:`, error);
+            console.error(`Error de permiso o conexión en ${collName}:`, error);
+            // No bloqueamos la app, solo logueamos el error
         });
     },
 
     // Agregar documento
     async add(collName, data) {
         try {
-            const docRef = await addDoc(collection(db, collName), {
+            // Limpiamos los datos antes de enviar para evitar errores de "Invalid Data"
+            const safeData = sanitize({
                 ...data,
                 createdAt: new Date() // Timestamp automático
             });
+
+            const docRef = await addDoc(collection(db, collName), safeData);
+            console.log(`Documento creado en ${collName} con ID: ${docRef.id}`);
             return docRef.id;
         } catch (error) {
-            console.error(`Error agregando a ${collName}:`, error);
-            throw error;
+            console.error(`Error GUARDANDO en ${collName}:`, error);
+            throw error; // Lanzamos el error para que UI Manager muestre el toast rojo
         }
     },
 
@@ -69,12 +94,13 @@ export const DataService = {
     async update(collName, id, data) {
         try {
             const docRef = doc(db, collName, id);
-            await updateDoc(docRef, {
+            const safeData = sanitize({
                 ...data,
                 updatedAt: new Date()
             });
+            await updateDoc(docRef, safeData);
         } catch (error) {
-            console.error(`Error actualizando ${id} en ${collName}:`, error);
+            console.error(`Error ACTUALIZANDO ${id} en ${collName}:`, error);
             throw error;
         }
     },
@@ -84,31 +110,29 @@ export const DataService = {
         try {
             await deleteDoc(doc(db, collName, id));
         } catch (error) {
-            console.error(`Error eliminando ${id} de ${collName}:`, error);
+            console.error(`Error ELIMINANDO ${id} de ${collName}:`, error);
             throw error;
         }
     },
 
-    // === UTILIDADES ===
+    // === UTILIDADES EXTRA ===
 
-    // Obtener lista de Stock (Simulado o desde archivo)
+    // Obtener lista de Stock
     async fetchStockList() {
-        // Intentamos cargar un archivo local stock.json si existe, o devolvemos una lista básica
         try {
             const response = await fetch('./stock.json');
             if (response.ok) {
                 const data = await response.json();
-                return data.items || []; // Asumiendo estructura { items: [...] }
+                return data.items || [];
             }
         } catch (e) {
-            console.warn("No se encontró stock.json, usando lista vacía.");
+            // Es normal si no existe el archivo todavía
+            console.log("No hay archivo stock.json local.");
         }
-        
-        // Fallback: Lista vacía o básica si no hay archivo
         return [];
     },
 
-    // Generar Backup de todas las colecciones
+    // Generar Backup JSON
     async generateBackupJSON() {
         const collections = ['tasks', 'notes', 'orders', 'deliveries', 'procedures', 'scripts'];
         const backup = {};
@@ -118,11 +142,10 @@ export const DataService = {
                 const snapshot = await getDocs(collection(db, col));
                 backup[col] = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
             } catch (e) {
-                console.error(`Error backup ${col}:`, e);
+                console.error(`No se pudo respaldar ${col}`, e);
                 backup[col] = [];
             }
         }
-
         return backup;
     }
 };
