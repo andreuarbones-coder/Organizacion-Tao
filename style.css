@@ -42,7 +42,8 @@ body.branch-ejemplares {
 .scroll-area {
     height: calc(var(--app-height) - var(--header-height));
     overflow-y: auto;
-    padding-bottom: calc(var(--nav-height) + 40px); /* Espacio extra para que no tape el contenido */
+    /* AUMENTADO: Mucho más espacio abajo para librar el botón flotante (FAB) */
+    padding-bottom: calc(var(--nav-height) + 120px); 
 }
 
 /* === Bottom Navigation Bar === */
