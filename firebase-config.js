@@ -1,28 +1,117 @@
-// Importamos las funciones necesarias (Versión 9.22.0 compatible con data-service.js)
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-import { getFirestore } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
-import { getAuth } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
-// NUEVO: Importamos Storage para subir imágenes
-import { getStorage } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-storage.js";
+import { db } from './firebase-config.js';
+import { 
+    collection, 
+    getDocs, 
+    addDoc, 
+    deleteDoc, 
+    updateDoc, 
+    doc, 
+    query, 
+    orderBy, 
+    serverTimestamp 
+} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-// === TU CONFIGURACIÓN DE FIREBASE (Credenciales Reales) ===
-const firebaseConfig = {
-    apiKey: "AIzaSyBzPiBCgiHoHSp24U7739fj9-htyTA8KiU",
-    authDomain: "app-jardin-v4.firebaseapp.com",
-    databaseURL: "https://app-jardin-v4-default-rtdb.firebaseio.com",
-    projectId: "app-jardin-v4",
-    storageBucket: "app-jardin-v4.firebasestorage.app",
-    messagingSenderId: "413324369604",
-    appId: "1:413324369604:web:f78e3f459725dd824e3391"
+const DataService = {
+    // --- STOCK ---
+    loadStock: async () => {
+        try {
+            const q = query(collection(db, "stock"), orderBy("name"));
+            const querySnapshot = await getDocs(q);
+            const stockData = [];
+            querySnapshot.forEach((doc) => {
+                stockData.push({ id: doc.id, ...doc.data() });
+            });
+            UIManager.renderStock(stockData);
+        } catch (error) {
+            console.error("Error al cargar stock:", error);
+            UIManager.showNotification("Error al cargar el stock", "error");
+        }
+    },
+
+    // --- PROCEDIMIENTOS ---
+    loadProcedures: async () => {
+        try {
+            const q = query(collection(db, "procedures"), orderBy("title"));
+            const querySnapshot = await getDocs(q);
+            const procedures = [];
+            querySnapshot.forEach((doc) => {
+                // IMPORTANTE: Incluimos el ID del documento para poder editar/borrar
+                procedures.push({ id: doc.id, ...doc.data() });
+            });
+            UIManager.renderProcedures(procedures);
+        } catch (error) {
+            console.error("Error al cargar procedimientos:", error);
+            UIManager.showNotification("Error al cargar procedimientos", "error");
+        }
+    },
+
+    addProcedure: async (procedureData) => {
+        try {
+            await addDoc(collection(db, "procedures"), {
+                ...procedureData,
+                createdAt: serverTimestamp()
+            });
+            UIManager.showNotification("Procedimiento agregado", "success");
+            DataService.loadProcedures(); // Recargar lista
+        } catch (error) {
+            console.error("Error al agregar procedimiento:", error);
+            UIManager.showNotification("Error al guardar", "error");
+        }
+    },
+
+    // NUEVO: Eliminar procedimiento
+    deleteProcedure: async (id) => {
+        try {
+            await deleteDoc(doc(db, "procedures", id));
+            UIManager.showNotification("Procedimiento eliminado", "success");
+            DataService.loadProcedures(); // Recargar lista
+        } catch (error) {
+            console.error("Error al eliminar procedimiento:", error);
+            UIManager.showNotification("Error al eliminar", "error");
+        }
+    },
+
+    // NUEVO: Actualizar procedimiento
+    updateProcedure: async (id, updatedData) => {
+        try {
+            const procedureRef = doc(db, "procedures", id);
+            await updateDoc(procedureRef, updatedData);
+            UIManager.showNotification("Procedimiento actualizado", "success");
+            DataService.loadProcedures(); // Recargar lista
+        } catch (error) {
+            console.error("Error al actualizar procedimiento:", error);
+            UIManager.showNotification("Error al actualizar", "error");
+        }
+    },
+
+    // --- HISTORIAL ---
+    loadHistory: async () => {
+        try {
+            const q = query(collection(db, "history"), orderBy("timestamp", "desc"));
+            const querySnapshot = await getDocs(q);
+            const history = [];
+            querySnapshot.forEach((doc) => {
+                history.push({ id: doc.id, ...doc.data() });
+            });
+            UIManager.renderHistory(history);
+        } catch (error) {
+            console.error("Error al cargar historial:", error);
+            UIManager.showNotification("Error al cargar historial", "error");
+        }
+    },
+
+    addHistoryEntry: async (entry) => {
+        try {
+            await addDoc(collection(db, "history"), {
+                ...entry,
+                timestamp: serverTimestamp()
+            });
+        } catch (error) {
+            console.error("Error al registrar historial:", error);
+        }
+    }
 };
 
-// 1. Inicializamos la App
-const app = initializeApp(firebaseConfig);
-
-// 2. Inicializamos y EXPORTAMOS los servicios para que los use el resto de la app
-export const db = getFirestore(app);
-export const auth = getAuth(app);
-// NUEVO: Exportamos Storage
-export const storage = getStorage(app);
-
-console.log("Firebase inicializado correctamente: app-jardin-v4 (v9.22.0) + Storage");
+// Exportar para uso global
+window.DataService = DataService;
+export default DataService;
