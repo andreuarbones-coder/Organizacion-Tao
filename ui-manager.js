@@ -1,4 +1,7 @@
 const UIManager = {
+    // Almacén temporal para los datos cargados
+    lastProcedures: [],
+
     init: () => {
         UIManager.setupEventListeners();
         // Inicializar vista por defecto
@@ -90,7 +93,7 @@ const UIManager = {
             </div>
         `).join('');
 
-        // Agregamos un espaciador al final para evitar que el botón flotante tape el último item
+        // Espaciador para scroll
         container.innerHTML = html + '<div class="h-32 w-full"></div>';
     },
 
@@ -98,15 +101,32 @@ const UIManager = {
         const container = document.getElementById('procedures-list');
         if (!container) return;
 
+        // Guardamos referencia local para poder editar después
+        UIManager.lastProcedures = procedures;
+
         if (procedures.length === 0) {
             container.innerHTML = '<div class="p-4 text-center text-gray-500">No hay procedimientos registrados</div>';
             return;
         }
 
         const html = procedures.map(proc => `
-            <div class="bg-white p-4 rounded-lg shadow mb-3 border-l-4 border-blue-500">
-                <h3 class="font-bold text-gray-800 text-lg mb-1">${proc.title}</h3>
+            <div class="bg-white p-4 rounded-lg shadow mb-3 border-l-4 border-blue-500 relative">
+                <div class="flex justify-between items-start mb-2">
+                    <h3 class="font-bold text-gray-800 text-lg">${proc.title}</h3>
+                    
+                    <!-- Botones de Acción -->
+                    <div class="flex gap-2">
+                        <button onclick="UIManager.editProcedure('${proc.id}')" class="text-blue-500 hover:text-blue-700 p-1 rounded hover:bg-blue-50 transition-colors" title="Editar">
+                            <i class='bx bx-edit-alt text-xl'></i>
+                        </button>
+                        <button onclick="UIManager.deleteProcedure('${proc.id}')" class="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 transition-colors" title="Eliminar">
+                            <i class='bx bx-trash text-xl'></i>
+                        </button>
+                    </div>
+                </div>
+
                 <p class="text-gray-600 text-sm mb-2">${proc.description}</p>
+                
                 <div class="flex flex-wrap gap-2 mt-2">
                     ${proc.steps ? proc.steps.map((step, index) => 
                         `<span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full flex items-center">
@@ -117,9 +137,39 @@ const UIManager = {
             </div>
         `).join('');
 
-        // Agregamos un espaciador al final
+        // Espaciador para scroll
         container.innerHTML = html + '<div class="h-32 w-full"></div>';
     },
+
+    // --- NUEVAS FUNCIONES DE ACCIÓN ---
+
+    deleteProcedure: (id) => {
+        if (confirm('¿Estás seguro de que deseas eliminar este procedimiento? Esta acción no se puede deshacer.')) {
+            DataService.deleteProcedure(id);
+        }
+    },
+
+    editProcedure: (id) => {
+        const proc = UIManager.lastProcedures.find(p => p.id === id);
+        if (!proc) return;
+
+        // Edición rápida usando Prompts
+        const newTitle = prompt("Editar Título del Procedimiento:", proc.title);
+        if (newTitle === null) return; // Cancelado por el usuario
+
+        const newDesc = prompt("Editar Descripción:", proc.description);
+        if (newDesc === null) return; // Cancelado
+
+        // Solo enviamos actualización si hubo cambios y los datos son válidos
+        if (newTitle.trim() !== "" && (newTitle !== proc.title || newDesc !== proc.description)) {
+            DataService.updateProcedure(id, {
+                title: newTitle.trim(),
+                description: newDesc.trim()
+            });
+        }
+    },
+
+    // ----------------------------------
 
     renderHistory: (history) => {
         const container = document.getElementById('history-list');
@@ -155,7 +205,7 @@ const UIManager = {
             `;
         }).join('');
 
-        // Agregamos un espaciador al final
+        // Espaciador para scroll
         container.innerHTML = html + '<div class="h-32 w-full"></div>';
     },
 
@@ -184,9 +234,8 @@ const UIManager = {
     },
 
     showNotification: (message, type = 'info') => {
-        // Implementar notificación toast simple
         const toast = document.createElement('div');
-        toast.className = `fixed top-4 right-4 p-4 rounded shadow-lg text-white z-50 ${
+        toast.className = `fixed top-4 right-4 p-4 rounded shadow-lg text-white z-50 transition-opacity duration-500 ${
             type === 'success' ? 'bg-green-500' : 
             type === 'error' ? 'bg-red-500' : 'bg-blue-500'
         }`;
@@ -194,7 +243,8 @@ const UIManager = {
         document.body.appendChild(toast);
 
         setTimeout(() => {
-            toast.remove();
+            toast.style.opacity = '0';
+            setTimeout(() => toast.remove(), 500);
         }, 3000);
     }
 };
